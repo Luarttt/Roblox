@@ -1,58 +1,35 @@
+-- Visual Confirmation
 game:GetService("StarterGui"):SetCore("SendNotification", { 
-	Title = "Notification";
-	Text = "Executing Inventory & Visual Pet Script...";
+	Title = "Ninja Legends Visuals";
+	Text = "Injecting custom visual meshes...";
 	Icon = "rbxassetid://0"
 })
 
 local lp = game:GetService("Players").LocalPlayer
-local character = lp.Character or lp.CharacterAdded:Wait()
-local petsPath = lp:WaitForChild("petsFolder"):WaitForChild("Skyblade")
-local equipRemote = game:GetService("ReplicatedStorage"):WaitForChild("rEvents"):WaitForChild("equipPetRemote") 
 
-local function addVal(class, name, val, parent)
-    local v = Instance.new(class)
-    v.Name = name
-    v.Value = val
-    v.Parent = parent
-    return v
-end
+local function spawnNinjaLegendsPet(name, tier, meshId, textureId, offset)
+    local character = lp.Character or lp.CharacterAdded:Wait()
+    local root = character:WaitForChild("HumanoidRootPart", 10)
+    if not root then return end
 
--- PART 1: Inventory Creation
-local function createPet(data)
-    local pet = Instance.new("StringValue")
-    pet.Name = data.name
-    pet.Value = data.assetId
-    pet.Parent = petsPath
+    -- 1. Create the base physical part
+    local petModel = Instance.new("Part")
+    petModel.Size = Vector3.new(2, 2, 2)
+    petModel.CanCollide = false
+    petModel.Anchored = false
+    petModel.Transparency = 0
+    petModel.Parent = character
 
-    addVal("IntValue", "level", 1, pet)
-    addVal("IntValue", "exp", 0, pet)
-    addVal("BoolValue", "untradeable", false, pet)
-    addVal("BoolValue", "unsellable", false, pet)
-    addVal("StringValue", "chosenName", data.name, pet)
+    -- 2. Insert the actual SpecialMesh to give it the proper 3D shape and skin
+    local mesh = Instance.new("SpecialMesh")
+    mesh.MeshType = Enum.MeshType.FileMesh
+    mesh.MeshId = meshId
+    mesh.TextureId = textureId
+    mesh.Scale = Vector3.new(1.5, 1.5, 1.5) -- Adjust scale as needed
+    mesh.Parent = petModel
 
-    local perks = Instance.new("Folder", pet)
-    perks.Name = "perksFolder"
-    addVal("NumberValue", "chi", data.multiplier, perks)
-    addVal("NumberValue", "coins", data.multiplier, perks)
-    addVal("NumberValue", "ninjitsu", data.multiplier, perks)
-
-    local evosVortex = {"evolved", "eternalized", "immortalized", "legend", "elementalized", "X-GENESIS", "Z-MASTER", "ULTRA-BEAST", "INFINITY-LORD", "CHAOS-TITAN", "ZX-LEGEND", "DARK-ELEMENT", "SHADOWSTORM", "VORTEX-ELITE"}
-    for _, evoName in ipairs(evosVortex) do
-        addVal("BoolValue", evoName, (evoName == data.forcedEvo), pet)
-    end
-    
-    pcall(function() equipRemote:FireServer(pet) end)
-end
-
--- PART 2: Visual 3D Illusion Spawning
-local function spawnVisualPet(name, forcedEvo, offset)
-    local visualPet = Instance.new("Part")
-    visualPet.Size = Vector3.new(2, 2, 2)
-    visualPet.Color = Color3.fromRGB(138, 43, 226) -- Purple theme
-    visualPet.CanCollide = false
-    visualPet.Parent = character
-
-    local bg = Instance.new("BillboardGui", visualPet)
+    -- 3. Create the Billboard GUI for the Tier nameplates
+    local bg = Instance.new("BillboardGui", petModel)
     bg.Size = UDim2.new(0, 200, 0, 50)
     bg.AlwaysOnTop = true
     bg.StudsOffset = Vector3.new(0, 3, 0)
@@ -60,33 +37,43 @@ local function spawnVisualPet(name, forcedEvo, offset)
     local tl = Instance.new("TextLabel", bg)
     tl.Size = UDim2.new(1, 0, 1, 0)
     tl.BackgroundTransparency = 1
-    tl.TextColor3 = Color3.fromRGB(255, 69, 0)
+    tl.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan Aura Color
     tl.TextStrokeTransparency = 0
-    tl.TextSize = 16
-    tl.Text = "[" .. forcedEvo .. "] " .. name
+    tl.TextSize = 15
+    tl.Text = "[" .. tier .. "] " .. name
 
-    local bp = Instance.new("BodyPosition", visualPet)
+    -- 4. Attachment physics to follow your ninja character smoothly
+    local bp = Instance.new("BodyPosition", petModel)
     bp.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bp.P = 12000 
 
+    local bg_align = Instance.new("BodyGyro", petModel)
+    bg_align.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+
+    -- Looped thread to calculate placements relative to character angle
     task.spawn(function()
-        while visualPet and visualPet.Parent and character:FindFirstChild("HumanoidRootPart") do
-            local root = character.HumanoidRootPart
-            bp.Position = (root.CFrame * offset).Position
-            task.wait(0.03)
+        while petModel and petModel.Parent and character:FindFirstChild("HumanoidRootPart") do
+            local currentRoot = character.HumanoidRootPart
+            bp.Position = (currentRoot.CFrame * offset).Position
+            bg_align.CFrame = currentRoot.CFrame
+            task.wait(0.01)
         end
     end)
 end
 
--- Data Configuration
-local petTypes = {
-    {name = "Ultra Doom Colossus", assetId = "http://roblox.com", multiplier = 1.265625e+22, forcedEvo = "VORTEX-ELITE", count = 1},
-    {name = "Secret Chaos Sorcerer", assetId = "http://roblox.com", multiplier = 5.2734375e+21, forcedEvo = "VORTEX-ELITE", count = 1}
-}
+-- Render the pets using default placeholder assets to test execution paths
+spawnNinjaLegendsPet(
+    "Ultra Doom Colossus", 
+    "VORTEX-ELITE", 
+    "rbxassetid://6112446866", -- Handled via Asset ID matching
+    "", 
+    CFrame.new(4, 3, 4)
+)
 
--- Run both features
-local spacing = 3
-for _, petData in ipairs(petTypes) do
-    createPet(petData)
-    spawnVisualPet(petData.name, petData.forcedEvo, CFrame.new(spacing, 3, 4))
-    spacing = spacing - 6 -- Offset the second pet to the other shoulder
-end
+spawnNinjaLegendsPet(
+    "Secret Chaos Sorcerer", 
+    "VORTEX-ELITE", 
+    "rbxassetid://6121834276", 
+    "", 
+    CFrame.new(-4, 3, 4)
+)
